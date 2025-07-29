@@ -6,14 +6,13 @@ import io.quarkus.runtime.annotations.QuarkusMain;
 import io.quarkus.scheduler.Scheduled;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.jboss.logging.Logger;
 import picocli.CommandLine;
 
 import java.io.IOException;
 import java.util.Optional;
-import java.util.logging.Logger;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.jboss.logmanager.Level.ERROR;
+import static io.quarkus.scheduler.Scheduled.ConcurrentExecution.SKIP;
 
 @ApplicationScoped
 @CommandLine.Command(name = "shelly-power-reader",
@@ -23,7 +22,7 @@ public class ShellyPowerReader implements QuarkusApplication {
     public static final String SHELLY_USER = "admin"; //always admin, see: https://shelly-api-docs.shelly.cloud/gen2/General/Authentication
     private static final String SHELLY_GEN1_ARG = "1";
     private static final String SHELLY_GEN2PLUS_ARG = "2+";
-    private static final Logger LOGGER = Logger.getLogger(ShellyPowerReader.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ShellyPowerReader.class);
     private static boolean initialized = false;
 
     private IReader reader;
@@ -54,7 +53,7 @@ public class ShellyPowerReader implements QuarkusApplication {
                 return 0;
             }
         } catch (CommandLine.ParameterException e) {
-            LOGGER.log(ERROR, "Error parsing command line arguments", e);
+            LOGGER.error("Error parsing command line arguments", e);
             LOGGER.info(commandLine.getUsageMessage());
             return 1;
         }
@@ -65,6 +64,15 @@ public class ShellyPowerReader implements QuarkusApplication {
             default -> throw new IllegalStateException("Unrecognized shelly generation: " + shellyGeneration);
         };
         initialized = true;
+
+        // print header
+        System.out.print("ip");
+        System.out.print(",");
+        System.out.print("timestamp");
+        System.out.print(",");
+        System.out.print("power");
+        System.out.print(",");
+        System.out.println("energy");
 
         while (true) {
             // keep application up;
@@ -78,10 +86,10 @@ public class ShellyPowerReader implements QuarkusApplication {
     }
 
     @RunOnVirtualThread
-    @Scheduled(every = "10s", delay = 3, delayUnit = SECONDS)
+    @Scheduled(every = "1s", concurrentExecution = SKIP)
     void readShellyDataAndPrintResults() throws IOException, InterruptedException {
         if (!initialized) {
-            LOGGER.info("Running scheduler, reader not initialized");
+            LOGGER.debug("Running scheduler, reader not initialized");
             return;
         }
 

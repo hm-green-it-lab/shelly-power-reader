@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.json.JsonObject;
 import jakarta.annotation.Nonnull;
+import org.jboss.logging.Logger;
 import org.slf4j.helpers.MessageFormatter;
 
 import java.io.IOException;
@@ -20,7 +21,6 @@ import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -38,7 +38,7 @@ import static org.jboss.resteasy.reactive.RestResponse.StatusCode.UNAUTHORIZED;
  */
 public class RpcReader implements IReader {
 
-    private static final Logger LOGGER = Logger.getLogger(RpcReader.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(RpcReader.class);
     private static final String SHELLY_RPC_PATH = "/rpc";
     private static final String SHELLY_RPC_URI = "http://{}" + SHELLY_RPC_PATH;
     private static final JsonObject RPC_STATUS_BODY = new JsonObject()
@@ -94,17 +94,17 @@ public class RpcReader implements IReader {
                 HttpResponse<String> authResponse = CLIENT.send(buildDigestAuthorizedRequest(ip, password, response),
                         HttpResponse.BodyHandlers.ofString());
                 if (authResponse.statusCode() != OK) {
-                    LOGGER.warning("Authorized Data retrieval error. HTTP-Status: " + response.statusCode());
-                    LOGGER.warning("Header:" + authResponse.headers());
-                    LOGGER.warning("Response Body: " + response.body());
+                    LOGGER.warn("Authorized Data retrieval error. HTTP-Status: " + response.statusCode());
+                    LOGGER.warn("Header:" + authResponse.headers());
+                    LOGGER.warn("Response Body: " + response.body());
                     yield Optional.empty();
                 }
                 yield Optional.ofNullable(parsePowerConsumption(authResponse.body()));
             }
             default -> {
-                LOGGER.warning("Data retrieval error. HTTP-Status: " + response.statusCode());
-                LOGGER.warning("Header:" + response.headers());
-                LOGGER.warning("Response Body: " + response.body());
+                LOGGER.warn("Data retrieval error. HTTP-Status: " + response.statusCode());
+                LOGGER.warn("Header:" + response.headers());
+                LOGGER.warn("Response Body: " + response.body());
                 yield Optional.empty();
             }
         };
@@ -122,11 +122,11 @@ public class RpcReader implements IReader {
         if (!switchNode.isMissingNode()) {
             meter.setPower(switchNode.path(JSON_POWER_FIELD).asDouble());
             if (!totalEnergyNode.isMissingNode()) {
-                meter.setTotal(totalEnergyNode.path(JSON_TOTAL_ENERGY_FIELD).asLong());
+                meter.setTotal(totalEnergyNode.path(JSON_TOTAL_ENERGY_FIELD).asDouble());
             }
             return meter;
         } else {
-            LOGGER.warning("No meters found in JSON.");
+            LOGGER.warn("No meters found in JSON.");
             return null;
         }
     }
@@ -149,7 +149,7 @@ public class RpcReader implements IReader {
         String response = encodeSha256Hex(String.join(":",
                 ha1, nonce, nonceCount, clientNonce, "auth", ha2));
         String authHeader = String.format(AUTH_HEADER_FORMAT_STRING, realm, nonce, response, qop, nonceCount, clientNonce);
-        LOGGER.log(DEBUG, "Generated auth header: " + authHeader);
+        LOGGER.debug("Generated auth header: " + authHeader);
         return HttpRequest.newBuilder()
                 .uri(URI.create(MessageFormatter.format(SHELLY_RPC_URI, ip).getMessage()))
                 .header(CONTENT_TYPE, APPLICATION_JSON)
@@ -181,7 +181,7 @@ public class RpcReader implements IReader {
             String value = matcher.group(2) != null ? matcher.group(2) : matcher.group(3);
             result.put(key, value);
         }
-        LOGGER.log(DEBUG, "Parsed auth header: " + result);
+        LOGGER.debug("Parsed auth header: " + result);
         return result;
     }
 
